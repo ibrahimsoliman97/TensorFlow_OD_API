@@ -1,88 +1,153 @@
-# TensorFlow Research Models
+# TensorFlow Object Detection API - Training Tutorial
 
-This folder contains machine learning models implemented by researchers in
-[TensorFlow](https://tensorflow.org). The models are maintained by their
-respective authors. To propose a model for inclusion, please submit a pull
-request.
+# Installation
+1-  `git clone https://github.com/ibrahimsoliman97/TensorFlow_OD_API.git`
 
-## Models
+2- `cd TensorFlow_OD_API`
 
--   [adversarial_crypto](adversarial_crypto): protecting communications with
-    adversarial neural cryptography.
--   [adversarial_text](adversarial_text): semi-supervised sequence learning with
-    adversarial training.
--   [attention_ocr](attention_ocr): a model for real-world image text
-    extraction.
--   [audioset](audioset): Models and supporting code for use with
-    [AudioSet](http://g.co/audioset).
--   [autoencoder](autoencoder): various autoencoders.
--   [brain_coder](brain_coder): Program synthesis with reinforcement learning.
--   [cognitive_mapping_and_planning](cognitive_mapping_and_planning):
-    implementation of a spatial memory based mapping and planning architecture
-    for visual navigation.
--   [compression](compression): compressing and decompressing images using a
-    pre-trained Residual GRU network.
--   [cvt_text](cvt_text): semi-supervised sequence learning with cross-view
-    training.
--   [deep_contextual_bandits](deep_contextual_bandits): code for a variety of contextual bandits algorithms using deep neural networks and Thompson sampling.
--   [deep_speech](deep_speech): automatic speech recognition.
--   [deeplab](deeplab): deep labeling for semantic image segmentation.
--   [delf](delf): deep local features for image matching and retrieval.
--   [differential_privacy](differential_privacy): differential privacy for training
-    data.
--   [domain_adaptation](domain_adaptation): domain separation networks.
--   [fivo](fivo): filtering variational objectives for training generative
-    sequence models.
--   [gan](gan): generative adversarial networks.
--   [im2txt](im2txt): image-to-text neural network for image captioning.
--   [inception](inception): deep convolutional networks for computer vision.
--   [keypointnet](keypointnet): discovery of latent 3D keypoints via end-to-end
-    geometric eeasoning [[demo](https://keypointnet.github.io/)].
--   [learning_to_remember_rare_events](learning_to_remember_rare_events): a
-    large-scale life-long memory module for use in deep learning.
--   [learning_unsupervised_learning](learning_unsupervised_learning): a
-    meta-learned unsupervised learning update rule.
--   [lexnet_nc](lexnet_nc): a distributed model for noun compound relationship
-    classification.
--   [lfads](lfads): sequential variational autoencoder for analyzing
-    neuroscience data.
--   [lm_1b](lm_1b): language modeling on the one billion word benchmark.
--   [lm_commonsense](lm_commonsense): commonsense reasoning using language models.
--   [maskgan](maskgan): text generation with GANs.
--   [namignizer](namignizer): recognize and generate names.
--   [neural_gpu](neural_gpu): highly parallel neural computer.
--   [neural_programmer](neural_programmer): neural network augmented with logic
-    and mathematic operations.
--   [next_frame_prediction](next_frame_prediction): probabilistic future frame
-    synthesis via cross convolutional networks.
--   [object_detection](object_detection): localizing and identifying multiple
-    objects in a single image.
--   [pcl_rl](pcl_rl): code for several reinforcement learning algorithms,
-    including Path Consistency Learning.
--   [ptn](ptn): perspective transformer nets for 3D object reconstruction.
--   [marco](marco): automating the evaluation of crystallization experiments.
--   [qa_kg](qa_kg): module networks for question answering on knowledge graphs.
--   [real_nvp](real_nvp): density estimation using real-valued non-volume
-    preserving (real NVP) transformations.
--   [rebar](rebar): low-variance, unbiased gradient estimates for discrete
-    latent variable models.
--   [resnet](resnet): deep and wide residual networks.
--   [seq2species](seq2species): deep learning solution for read-level taxonomic
-    classification.
--   [skip_thoughts](skip_thoughts): recurrent neural network sentence-to-vector
-    encoder.
--   [slim](slim): image classification models in TF-Slim.
--   [street](street): identify the name of a street (in France) from an image
-    using a Deep RNN.
--   [struct2depth](struct2depth): unsupervised learning of depth and ego-motion.
--   [swivel](swivel): the Swivel algorithm for generating word embeddings.
--   [syntaxnet](syntaxnet): neural models of natural language syntax.
--   [tcn](tcn): Self-supervised representation learning from multi-view video.
--   [textsum](textsum): sequence-to-sequence with attention model for text
-    summarization.
--   [transformer](transformer): spatial transformer network, which allows the
-    spatial manipulation of data within the network.
--   [vid2depth](vid2depth): learning depth and ego-motion unsupervised from
-    raw monocular video.
--   [video_prediction](video_prediction): predicting future video frames with
-    neural advection.
+3- `pip install tensorflow-gpu==1.15`
+
+4- `protoc object_detection/protos/*.proto --python_out=.` 
+
+# Dataset Preparation
+
+TensorFlow Object Detection API reads data using the TFRecord file format. a sample scripts (`create_pascal_tf_record.py`) is
+provided to convert from the PASCAL VOC dataset to TFRecords.
+
+## Generating the PASCAL VOC TFRecord files.
+
+The raw 2012 PASCAL VOC data set is located
+[here](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar).
+To download, extract and convert it to TFRecords, run the following commands
+below:
+
+```bash
+# From TensorFlow_OD_API/
+wget http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar
+tar -xvf VOCtrainval_11-May-2012.tar
+python object_detection/dataset_tools/create_pascal_tf_record.py \
+    --label_map_path=object_detection/data/pascal_label_map.pbtxt \
+    --data_dir=VOCdevkit --year=VOC2012 --set=train \
+    --output_path=pascal_train.record
+python object_detection/dataset_tools/create_pascal_tf_record.py \
+    --label_map_path=object_detection/data/pascal_label_map.pbtxt \
+    --data_dir=VOCdevkit --year=VOC2012 --set=val \
+    --output_path=pascal_val.record
+```
+
+You should end up with two TFRecord files named `pascal_train.record` and
+`pascal_val.record` in the `tensorflow/models/research/` directory.
+
+The label map for the PASCAL VOC data set can be found at
+`object_detection/data/pascal_label_map.pbtxt`.
+
+
+# Configuring the Object Detection Training Pipeline
+
+## Overview
+
+The TensorFlow Object Detection API uses protobuf files to configure the
+training and evaluation process. The schema for the training pipeline can be
+found in object_detection/protos/pipeline.proto. At a high level, the config
+file is split into 5 parts:
+
+1. The `model` configuration. This defines what type of model will be trained
+(ie. meta-architecture, feature extractor).
+2. The `train_config`, which decides what parameters should be used to train
+model parameters (ie. SGD parameters, input preprocessing and feature extractor
+initialization values).
+3. The `eval_config`, which determines what set of metrics will be reported for
+evaluation.
+4. The `train_input_config`, which defines what dataset the model should be
+trained on.
+5. The `eval_input_config`, which defines what dataset the model will be
+evaluated on. Typically this should be different than the training input
+dataset.
+
+A skeleton configuration file is shown below:
+
+```
+model {
+(... Add model config here...)
+}
+
+train_config : {
+(... Add train_config here...)
+}
+
+train_input_reader: {
+(... Add train_input configuration here...)
+}
+
+eval_config: {
+}
+
+eval_input_reader: {
+(... Add eval_input configuration here...)
+}
+```
+## Picking Model Parameters
+
+There are a large number of model parameters to configure. The best settings
+will depend on your given application. Faster R-CNN models are better suited to
+cases where high accuracy is desired and latency is of lower priority.
+Conversely, if processing time is the most important factor, SSD models are
+recommended. Read [our paper](https://arxiv.org/abs/1611.10012) for a more
+detailed discussion on the speed vs accuracy tradeoff.
+
+To help new users get started, sample model configurations have been provided
+in the object_detection/samples/configs folder. The contents of these
+configuration files can be pasted into `model` field of the skeleton
+configuration. Users should note that the `num_classes` field should be changed
+to a value suited for the dataset the user is training on.
+
+## Defining Inputs
+
+The TensorFlow Object Detection API accepts inputs in the TFRecord file format.
+Users must specify the locations of both the training and evaluation files.
+Additionally, users should also specify a label map, which define the mapping
+between a class id and class name. The label map should be identical between
+training and evaluation datasets.
+
+An example input configuration looks as follows:
+
+```
+tf_record_input_reader {
+  input_path: "/usr/home/username/data/train.record"
+}
+label_map_path: "/usr/home/username/data/label_map.pbtxt"
+```
+
+Users should substitute the `input_path` and `label_map_path` arguments and
+insert the input configuration into the `train_input_reader` and
+`eval_input_reader` fields in the skeleton configuration.
+
+# Model Training
+After stetting up your dataset and model configuration file, you can run below command to start the training:
+```bash
+python3 train.py --logtostderr --train_dir=/path/to_output_model/ --pipeline_config_path=/path_to_training_config_.json
+
+```
+## Running Tensorboard for Training Progress
+
+Progress for training and eval jobs can be inspected using Tensorboard. If using
+the recommended directory structure, Tensorboard can be run using the following
+command:
+
+```bash
+tensorboard --logdir=${MODEL_DIR}
+```
+
+where `${MODEL_DIR}` points to the directory that contains the train and eval
+directories. Please note it may take Tensorboard a couple minutes to populate
+with data.
+
+# Model Deployment 
+After your model has been trained, you should export it to a TensorFlow graph proto (Frozen Model) for inference or OpenVINO optimization deployment.
+```bash
+python3 export_inference_graph.py --input_type image_tensor --pipeline_config_path training-config/ssdMv2-512/pipeline.config --trained_checkpoint_prefix training-config/ssdMv2-512/model.ckpt-300000 --output_directory .
+```
+
+# Model Inference
+You can use below notebook on colab or locally for model testing and detection visualization :
+https://github.com/tensorflow/models/blob/master/research/object_detection/colab_tutorials/object_detection_tutorial.ipynb
